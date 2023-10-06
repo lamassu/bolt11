@@ -2,7 +2,6 @@
 
 const createHash = require('create-hash')
 const bech32 = require('bech32')
-const secp256k1 = require('secp256k1')
 const Buffer = require('safe-buffer').Buffer
 const BN = require('bn.js')
 const bitcoinjsAddress = require('bitcoinjs-lib').address
@@ -497,67 +496,6 @@ function hrpToMillisat (hrpString, outputString) {
   return outputString ? millisatoshisBN.toString() : millisatoshisBN
 }
 
-function sign (inputPayReqObj, inputPrivateKey) {
-  const payReqObj = cloneDeep(inputPayReqObj)
-  const privateKey = hexToBuffer(inputPrivateKey)
-  if (payReqObj.complete && payReqObj.paymentRequest) return payReqObj
-
-  if (privateKey === undefined || privateKey.length !== 32 ||
-      !secp256k1.privateKeyVerify(privateKey)) {
-    throw new Error('privateKey must be a 32 byte Buffer and valid private key')
-  }
-
-  let nodePublicKey, tagNodePublicKey
-  // If there is a payee_node_key tag convert to buffer
-  if (tagsContainItem(payReqObj.tags, TAGNAMES['19'])) {
-    tagNodePublicKey = hexToBuffer(tagsItems(payReqObj.tags, TAGNAMES['19']))
-  }
-  // If there is payeeNodeKey attribute, convert to buffer
-  if (payReqObj.payeeNodeKey) {
-    nodePublicKey = hexToBuffer(payReqObj.payeeNodeKey)
-  }
-  // If they are not equal throw an error
-  if (nodePublicKey && tagNodePublicKey && !tagNodePublicKey.equals(nodePublicKey)) {
-    throw new Error('payee node key tag and payeeNodeKey attribute must match')
-  }
-
-  // make sure if either exist they are in nodePublicKey
-  nodePublicKey = tagNodePublicKey || nodePublicKey
-
-  const publicKey = Buffer.from(secp256k1.publicKeyCreate(privateKey))
-
-  // Check if pubkey matches for private key
-  if (nodePublicKey && !publicKey.equals(nodePublicKey)) {
-    throw new Error('The private key given is not the private key of the node public key given')
-  }
-
-  const words = bech32.decode(payReqObj.wordsTemp, Number.MAX_SAFE_INTEGER).words
-
-  // the preimage for the signing data is the buffer of the prefix concatenated
-  // with the buffer conversion of the data words excluding the signature
-  // (right padded with 0 bits)
-  const toSign = Buffer.concat([Buffer.from(payReqObj.prefix, 'utf8'), wordsToBuffer(words)])
-  // single SHA256 hash for the signature
-  const payReqHash = sha256(toSign)
-
-  // signature is 64 bytes (32 byte r value and 32 byte s value concatenated)
-  // PLUS one extra byte appended to the right with the recoveryID in [0,1,2,3]
-  // Then convert to 5 bit words with right padding 0 bits.
-  const sigObj = secp256k1.ecdsaSign(payReqHash, privateKey)
-  sigObj.signature = Buffer.from(sigObj.signature)
-  const sigWords = hexToWord(sigObj.signature.toString('hex') + '0' + sigObj.recid)
-
-  // append signature words to the words, mark as complete, and add the payreq
-  payReqObj.payeeNodeKey = publicKey.toString('hex')
-  payReqObj.signature = sigObj.signature.toString('hex')
-  payReqObj.recoveryFlag = sigObj.recid
-  payReqObj.wordsTemp = bech32.encode('temp', words.concat(sigWords), Number.MAX_SAFE_INTEGER)
-  payReqObj.complete = true
-  payReqObj.paymentRequest = bech32.encode(payReqObj.prefix, words.concat(sigWords), Number.MAX_SAFE_INTEGER)
-
-  return orderKeys(payReqObj)
-}
-
 function encode (inputData, addDefaults) {
   // we don't want to affect the data being passed in, so we copy the object
   const data = cloneDeep(inputData)
@@ -1029,7 +967,6 @@ function getTagsObject (tags) {
 module.exports = {
   encode,
   decode,
-  sign,
   satToHrp,
   millisatToHrp,
   hrpToSat,
