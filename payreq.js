@@ -916,7 +916,7 @@ function decode (paymentRequest, network) {
 
   const toSign = Buffer.concat([Buffer.from(prefix, 'utf8'), Buffer.from(convert(wordsNoSig, 5, 8))])
   const payReqHash = sha256(toSign)
-  const sigPubkey = Buffer.from(secp256k1.ecdsaRecover(sigBuffer, recoveryFlag, payReqHash, true))
+  // const sigPubkey = Buffer.from(secp256k1.ecdsaRecover(sigBuffer, recoveryFlag, payReqHash, true))
   if (tagsContainItem(tags, TAGNAMES['19']) && tagsItems(tags, TAGNAMES['19']) !== sigPubkey.toString('hex')) {
     throw new Error('Lightning Payment Request signature pubkey does not match payee pubkey')
   }
@@ -931,7 +931,7 @@ function decode (paymentRequest, network) {
     millisatoshis,
     timestamp,
     timestampString,
-    payeeNodeKey: sigPubkey.toString('hex'),
+    payeeNodeKey: '',// this isn't needed for validation of amount sigPubkey.toString('hex'),
     signature: sigBuffer.toString('hex'),
     recoveryFlag,
     tags

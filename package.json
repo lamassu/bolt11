@@ -1,6 +1,6 @@
 {
   "name": "@lamassu/bolt11",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "description": "Fork from the bitcoinjs/bolt11 lib, remove types for node6 support",
   "main": "payreq.js",
   "scripts": {
